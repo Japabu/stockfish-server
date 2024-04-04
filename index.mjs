@@ -12,7 +12,7 @@ fastify.get("/", async (request, reply) => {
   let { moves, time, fen, depth } = request.query;
   moves = (moves || "").trim().split(",").join(" ");
   time = parseInt(time);
-  depth = parseInt(time);
+  depth = parseInt(depth);
   fen = (fen || "").trim();
 
   console.log("Received request:", { time, depth, moves, fen });
