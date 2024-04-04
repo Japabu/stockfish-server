@@ -15,7 +15,7 @@ fastify.get("/", async (request, reply) => {
   depth = parseInt(time);
   fen = (fen || "").trim();
 
-  console.log("Received request:", { time, moves, fen });
+  console.log("Received request:", { time, depth, moves, fen });
 
   if (!moves && !fen) return reply.code(400).send({ error: "Fen or moves required!" });
   if (moves && fen) return reply.code(400).send({ error: "Fen and moves are exclusive!" });
