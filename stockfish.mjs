@@ -50,11 +50,19 @@ export default class Stockfish {
         this.#sendLine("position fen " + fen);
     }
 
-    go(movetime) {
+    goTime(movetime) {
         this.#score = 0;
         this.#depth = 0;
         return this.#startJob("go", () => {
             this.#sendLine("go movetime " + movetime);
+        });
+    }
+
+    goDepth(depth) {
+        this.#score = 0;
+        this.#depth = 0;
+        return this.#startJob("go", () => {
+            this.#sendLine("go depth " + depth);
         });
     }
 

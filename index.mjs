@@ -9,23 +9,26 @@ const fastify = Fastify({ logger: false });
 const queue = [];
 
 fastify.get("/", async (request, reply) => {
-  let { moves, time, fen } = request.query;
+  let { moves, time, fen, depth } = request.query;
   moves = (moves || "").trim().split(",").join(" ");
   time = parseInt(time);
+  depth = parseInt(time);
   fen = (fen || "").trim();
 
   console.log("Received request:", { time, moves, fen });
 
   if (!moves && !fen) return reply.code(400).send({ error: "Fen or moves required!" });
   if (moves && fen) return reply.code(400).send({ error: "Fen and moves are exclusive!" });
-  if (!time) return reply.code(400).send({ error: "Time is required!" });
+  if (!time && !depth) return reply.code(400).send({ error: "Time or depth is required!" });
+  if (time && depth) return reply.code(400).send({ error: "Time and depth are exclusive!" });
 
   await stockfish.makeReady();
 
   if (moves) stockfish.moves(moves);
   else if (fen) stockfish.fen(fen);
 
-  return stockfish.go(parseInt(time));
+  if (time) return stockfish.goTime(time);
+  return stockfish.goDepth(depth);
 });
 
 fastify.listen({ port: process.env.PORT || 3000 }, (err, addr) => {
