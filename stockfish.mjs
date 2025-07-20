@@ -17,7 +17,7 @@ export default class Stockfish {
     start() {
         return this.#startJob("uci", () => {
             console.log("Starting stockfish process");
-            this.#process = spawn("./bin/stockfish-android-armv8");
+            this.#process = spawn("./bin/stockfish-android-armv7");
             this.#process.stdout.on('data', (data) => {
                 this.#inputBuffer += data;
                 this.#processData();
