@@ -17,7 +17,7 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
     - name: Build the Docker image
-      run: docker buildx build . --platform linux/arm64 -t stockfish-server:latest
+      run: docker buildx build . --platform linux/arm64 -t ghcr.io/japabu/stockfish-server:latest
     - name: 'Login to GitHub Container Registry'
       uses: docker/login-action@v1
       with:
