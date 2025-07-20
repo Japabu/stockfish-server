@@ -23,6 +23,4 @@ jobs:
         username: ${{github.actor}}
         password: ${{secrets.GITHUB_TOKEN}}
     - name: Build and push the Docker image
-      run: |
-        docker buildx build . --platform linux/arm64 -t ghcr.io/japabu/stockfish-server:latest
-        docker push ghcr.io/japabu/stockfish-server:latest
+      run: docker buildx build . --platform linux/arm64 --push -t ghcr.io/japabu/stockfish-server:latest
