@@ -31,7 +31,7 @@ fastify.get("/", async (request, reply) => {
   return stockfish.goDepth(depth);
 });
 
-fastify.listen({ port: process.env.PORT || 3000 }, (err, addr) => {
+fastify.listen({ port: process.env.PORT || 3000, host: process.env.HOST || "0.0.0.0" }, (err, addr) => {
   if (err) throw new Error(err);
   console.log("Listening on", addr);
 });
