@@ -17,7 +17,7 @@ export default class Stockfish {
     start() {
         return this.#startJob("uci", () => {
             console.log("Starting stockfish process");
-            this.#process = spawn("./bin/stockfish-android-armv7");
+            this.#process = spawn(process.env.STOCKFISH_PATH || "./bin/stockfish-android-armv7");
             this.#process.stdout.on('data', (data) => {
                 this.#inputBuffer += data;
                 this.#processData();
@@ -27,19 +27,14 @@ export default class Stockfish {
                 console.error("Stockfish [ERR] >> ", data);
             });
 
+            // Without the engine every request would hang forever, so exit and let Docker restart us
             this.#process.on('close', (code) => {
-                console.log("Stockfish process exited with code", code);
+                console.error("Stockfish process exited with code", code);
+                process.exit(1);
             });
 
             this.#sendLine("uci");
         });
-    }
-
-    async makeReady() {
-        if (this.#jobPromise) {
-            this.#sendLine("stop");
-            await this.#jobPromise;
-        }
     }
 
     moves(moves) {
@@ -86,7 +81,6 @@ export default class Stockfish {
     }
 
     #send(data) {
-        console.log("Stockfish [IN] <<", data.trim());
         this.#process.stdin.write(data);
     }
 
@@ -97,13 +91,9 @@ export default class Stockfish {
     #processData() {
         if (!this.#inputBuffer) return;
 
+        // The last element is an incomplete line (or "" when the chunk ended with a newline)
         const lines = this.#inputBuffer.split("\n");
-
-        this.#inputBuffer = "";
-
-        if (!this.#inputBuffer.endsWith("\n")) {
-            this.#inputBuffer = lines.pop()
-        }
+        this.#inputBuffer = lines.pop();
 
         lines.forEach((line) => this.#processLine(line));
     }
@@ -111,7 +101,6 @@ export default class Stockfish {
     #processLine(line) {
         line = line.trim();
         if (!line) return;
-        console.log("Stockfish [OUT] >>", line);
 
         if (line === "uciok") {
             console.log("Loading Stockfish settings");
@@ -130,10 +119,12 @@ export default class Stockfish {
                     this.#score = parseInt(splits[scoreIdx + 2]);
                 } else if (splits[scoreIdx + 1] === "mate") {
                     const mateIn = parseInt(splits[scoreIdx + 2]);
-                    this.#score = Math.sign(mateIn) * (MAX_SCORE - Math.abs(mateIn) * MATE_SCORE);
-                } else throw new Error("Unknown score unit!");
+                    // "mate 0" means the side to move is already checkmated
+                    this.#score = mateIn === 0 ? -MAX_SCORE : Math.sign(mateIn) * (MAX_SCORE - Math.abs(mateIn) * MATE_SCORE);
+                } else console.error("Unknown score unit:", line);
             }
         } else if (line.startsWith("bestmove ")) {
+            console.log("Stockfish >>", line, "score", this.#score, "depth", this.#depth);
             this.#completeJob("go", { bestmove: line.split(" ")[1], score: this.#score, depth: this.#depth });
         }
     }
