@@ -6,6 +6,10 @@ const MATE_SCORE = 1_000_000;
 
 export default class Stockfish {
 
+    constructor({ spawnEngine = spawn } = {}) {
+        this.spawnEngine = spawnEngine;
+    }
+
     #jobResolve = null;
     #jobPromise = null;
     #jobName = null;
@@ -17,7 +21,7 @@ export default class Stockfish {
     start() {
         return this.#startJob("uci", () => {
             console.log("Starting stockfish process");
-            this.#process = spawn(process.env.STOCKFISH_PATH || "./bin/stockfish-android-armv7");
+            this.#process = this.spawnEngine(process.env.STOCKFISH_PATH || "./bin/stockfish-android-armv7");
             this.#process.stdout.on('data', (data) => {
                 this.#inputBuffer += data;
                 this.#processData();
@@ -59,6 +63,18 @@ export default class Stockfish {
         return this.#startJob("go", () => {
             this.#sendLine("go depth " + depth);
         });
+    }
+
+    goPonder(depth) {
+        this.#score = 0;
+        this.#depth = 0;
+        return this.#startJob('go', () => this.#sendLine(`go ponder depth ${depth}`));
+    }
+
+    stop(ponderHit = false) {
+        if (this.#jobName !== 'go') return;
+        if (ponderHit) this.#sendLine('ponderhit');
+        this.#sendLine('stop');
     }
 
     #startJob(name, fn) {
@@ -110,11 +126,9 @@ export default class Stockfish {
         } else if (line.startsWith("info ")) {
             const splits = line.split(" ");
             const depthIdx = splits.indexOf("depth");
-            if (depthIdx !== -1) {
-                this.#depth = parseInt(splits[depthIdx + 1]);
-            }
             const scoreIdx = splits.indexOf("score");
             if (scoreIdx !== -1) {
+                if (depthIdx !== -1) this.#depth = parseInt(splits[depthIdx + 1]);
                 if (splits[scoreIdx + 1] === "cp") {
                     this.#score = parseInt(splits[scoreIdx + 2]);
                 } else if (splits[scoreIdx + 1] === "mate") {
@@ -125,7 +139,10 @@ export default class Stockfish {
             }
         } else if (line.startsWith("bestmove ")) {
             console.log("Stockfish >>", line, "score", this.#score, "depth", this.#depth);
-            this.#completeJob("go", { bestmove: line.split(" ")[1], score: this.#score, depth: this.#depth });
+            const parts = line.split(/\s+/);
+            const ponder = parts[2] === 'ponder' ? parts[3] : undefined;
+            this.#completeJob("go", { bestmove: parts[1], score: this.#score, depth: this.#depth,
+                ...(ponder ? { ponder } : {}) });
         }
     }
 
@@ -136,6 +153,7 @@ export default class Stockfish {
     #loadSettings() {
         this.#setOption("Threads", 2);
         this.#setOption("Hash", 32);
+        this.#setOption("Ponder", true);
         this.#setOption("SyzygyPath", path.resolve("./bin/syzygy"));
         this.#setOption("SyzygyProbeLimit", "5");
     }
