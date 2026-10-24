@@ -17,6 +17,8 @@ export default class Stockfish {
     #inputBuffer = "";
     #score = 0;
     #depth = 0;
+    #multiPv = 1;
+    #variations = new Map();
 
     start() {
         return this.#startJob("uci", () => {
@@ -49,9 +51,16 @@ export default class Stockfish {
         this.#sendLine("position fen " + fen);
     }
 
+    multiPv(count = 1) {
+        if (![1, 2].includes(count)) throw Error("MultiPV must be 1 or 2");
+        if (count !== this.#multiPv) this.#setOption("MultiPV", count);
+        this.#multiPv = count;
+    }
+
     goTime(movetime) {
         this.#score = 0;
         this.#depth = 0;
+        this.#variations.clear();
         return this.#startJob("go", () => {
             this.#sendLine("go movetime " + movetime);
         });
@@ -60,6 +69,7 @@ export default class Stockfish {
     goDepth(depth) {
         this.#score = 0;
         this.#depth = 0;
+        this.#variations.clear();
         return this.#startJob("go", () => {
             this.#sendLine("go depth " + depth);
         });
@@ -115,20 +125,25 @@ export default class Stockfish {
             const splits = line.split(" ");
             const depthIdx = splits.indexOf("depth");
             const scoreIdx = splits.indexOf("score");
-            if (scoreIdx !== -1) {
-                if (depthIdx !== -1) this.#depth = parseInt(splits[depthIdx + 1]);
-                if (splits[scoreIdx + 1] === "cp") {
-                    this.#score = parseInt(splits[scoreIdx + 2]);
-                } else if (splits[scoreIdx + 1] === "mate") {
-                    const mateIn = parseInt(splits[scoreIdx + 2]);
-                    // "mate 0" means the side to move is already checkmated
-                    this.#score = mateIn === 0 ? -MAX_SCORE : Math.sign(mateIn) * (MAX_SCORE - Math.abs(mateIn) * MATE_SCORE);
-                } else console.error("Unknown score unit:", line);
+            if (scoreIdx !== -1 && !splits.includes('lowerbound') && !splits.includes('upperbound')) {
+                const rankIdx = splits.indexOf('multipv');
+                const rank = rankIdx === -1 ? 1 : Number(splits[rankIdx + 1]);
+                const depth = depthIdx === -1 ? this.#depth : Number(splits[depthIdx + 1]);
+                const value = Number(splits[scoreIdx + 2]);
+                const score = splits[scoreIdx + 1] === 'cp' ? value
+                    : splits[scoreIdx + 1] === 'mate' ? value === 0 ? -MAX_SCORE : Math.sign(value) * (MAX_SCORE - Math.abs(value) * MATE_SCORE) : NaN;
+                if (Number.isFinite(score) && Number.isInteger(depth) && rank >= 1 && rank <= this.#multiPv) {
+                    if (rank === 1) { this.#score = score; this.#depth = depth; }
+                    const pvIdx = splits.indexOf('pv');
+                    if (pvIdx !== -1) this.#variations.set(rank, { rank, depth, score, moves: splits.slice(pvIdx + 1) });
+                }
             }
         } else if (line.startsWith("bestmove ")) {
             console.log("Stockfish >>", line, "score", this.#score, "depth", this.#depth);
             const parts = line.split(/\s+/);
-            this.#completeJob("go", { bestmove: parts[1], score: this.#score, depth: this.#depth });
+            const result = { bestmove: parts[1], score: this.#score, depth: this.#depth };
+            if (this.#multiPv > 1) result.variations = [...this.#variations.values()].filter(pv => pv.depth === this.#depth).sort((a, b) => a.rank - b.rank);
+            this.#completeJob("go", result);
         }
     }
 

@@ -33,3 +33,12 @@ test('a failed search does not block later foreground work', async () => {
     await assert.rejects(searches.evaluate({ fen: 'first', depth: 8 }), /temporary failure/);
     assert.equal((await searches.evaluate({ fen: 'second', depth: 12 })).depth, 12);
 });
+
+
+test('MultiPV is scoped to a single foreground request', async () => {
+    const settings = [];
+    const searches = new Searches({ multiPv: value => settings.push(value), fen() {}, goDepth: async () => ({ score: 0 }) });
+    await searches.evaluate({ fen: 'a', depth: 12, multipv: 2 });
+    await searches.evaluate({ fen: 'b', depth: 8 });
+    assert.deepEqual(settings, [2, 1]);
+});
