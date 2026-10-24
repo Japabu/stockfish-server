@@ -14,7 +14,9 @@ export function createApp(stockfish) {
   const searches = new Searches(stockfish);
 
   fastify.get("/", async (request, reply) => {
-    let { moves, time, fen, depth } = request.query;
+    let { moves, time, fen, depth, multipv } = request.query;
+    if (multipv !== undefined && !['1', '2'].includes(multipv)) return reply.code(400).send({ error: 'MultiPV must be 1 or 2' });
+    multipv = Number(multipv || 1);
     moves = (moves || "").trim().split(",").join(" ");
     time = parseInt(time);
     depth = parseInt(depth);
@@ -31,7 +33,7 @@ export function createApp(stockfish) {
     if (depth && (depth < 1 || depth > MAX_DEPTH)) return reply.code(400).send({ error: `Depth must be 1-${MAX_DEPTH}!` });
     if (time && (time < 1 || time > MAX_TIME)) return reply.code(400).send({ error: `Time must be 1-${MAX_TIME} ms!` });
 
-    return searches.evaluate({ fen, moves, depth, time });
+    return searches.evaluate({ fen, moves, depth, time, multipv });
   });
 
   return fastify;
