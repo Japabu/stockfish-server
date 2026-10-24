@@ -34,15 +34,5 @@ export function createApp(stockfish) {
     return searches.evaluate({ fen, moves, depth, time });
   });
 
-  fastify.post('/ponder', async (request, reply) => {
-    const fen = request.body?.fen;
-    if (typeof fen !== 'string' || !FEN_PATTERN.test(fen) || fen.trim().split(/\s+/).length !== 6) {
-      return reply.code(400).send({ error: 'Invalid fen!' });
-    }
-    return searches.startPonder(fen.trim());
-  });
-
-  fastify.delete('/ponder', () => searches.stopPonder());
-
   return fastify;
 }

@@ -65,18 +65,6 @@ export default class Stockfish {
         });
     }
 
-    goPonder(depth) {
-        this.#score = 0;
-        this.#depth = 0;
-        return this.#startJob('go', () => this.#sendLine(`go ponder depth ${depth}`));
-    }
-
-    stop(ponderHit = false) {
-        if (this.#jobName !== 'go') return;
-        if (ponderHit) this.#sendLine('ponderhit');
-        this.#sendLine('stop');
-    }
-
     #startJob(name, fn) {
         if (this.#jobName) throw new Error("Tried to start job " + name + " but busy with " + this.#jobName);
         this.#jobName = name;
@@ -140,9 +128,7 @@ export default class Stockfish {
         } else if (line.startsWith("bestmove ")) {
             console.log("Stockfish >>", line, "score", this.#score, "depth", this.#depth);
             const parts = line.split(/\s+/);
-            const ponder = parts[2] === 'ponder' ? parts[3] : undefined;
-            this.#completeJob("go", { bestmove: parts[1], score: this.#score, depth: this.#depth,
-                ...(ponder ? { ponder } : {}) });
+            this.#completeJob("go", { bestmove: parts[1], score: this.#score, depth: this.#depth });
         }
     }
 
@@ -153,7 +139,6 @@ export default class Stockfish {
     #loadSettings() {
         this.#setOption("Threads", 2);
         this.#setOption("Hash", 32);
-        this.#setOption("Ponder", true);
         this.#setOption("SyzygyPath", path.resolve("./bin/syzygy"));
         this.#setOption("SyzygyProbeLimit", "5");
     }
